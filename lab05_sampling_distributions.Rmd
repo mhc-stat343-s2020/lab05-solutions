@@ -1,0 +1,142 @@
+---
+title: "Stat 343: Sampling Distributions, Bias, Variance, and MSE"
+output:
+  html_document
+---
+
+\newcommand{\simiid}{{\mathrel {\mathop {\sim}\limits _{}^{\rm iid}}\,}}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+# Sampling distribution of variance estimates
+
+Suppose that $X_1, \ldots, X_n \simiid \text{Normal}(\mu, \sigma^2)$.
+
+Consider the following three estimators of $\sigma^2$:
+
+${\hat{\sigma}^2}^{Unbiased} = \frac{1}{n-1} \sum_{i = 1}^n (X_i - \bar{X})^2$
+
+${\hat{\sigma}^2}^{MLE} = \frac{1}{n} \sum_{i = 1}^n (X_i - \bar{X})^2$
+
+${\hat{\sigma}^2}^{MinMSE} = \frac{1}{n+1} \sum_{i = 1}^n (X_i - \bar{X})^2$
+
+We have found theoretically that (as reflected in their names), ${\hat{\sigma}^2}^{Unbiased}$ is an unbiased estimator of $\sigma^2$ and ${\hat{\sigma}^2}^{MinMSE}$ has the smallest MSE of these three estimators.
+
+Let's conduct a simulation study to see this in action.  Bias, variance, and mean squared error are descriptions of the sampling distribution of estimators; they describe behavior of the estimators across many different realizations of the sample data.  To understand the relationships between bias, variance, and MSE from a simulation study, we need to simulate many different data sets and calculate all three estimators based on each of the simulated data sets.
+
+The following code sets up a structure to do this.  We will simulate 10000 different data sets, where each data set consists of $n = 5$ observations drawn from a $Normal(5, 2^2)$ distribution.
+
+#### 1. In the loop below, enter the code to calculate the three estimates based on the simulated data vector x.
+
+```{r}
+# set a seed for random number generation so the results are reproducible
+set.seed(57336)
+
+# sample size and the true mu and sigma used for simulating data
+n <- 5
+true_mu <- 5
+true_sigma <- 2
+
+# number of simulated data sets to generate
+num_sims <- 10000
+
+# Set up a data frame to store our estimates.
+#
+# Think of this as an empty spreadsheet with three columns:
+# one each to store our three different estimates.
+#
+# There are 10000 rows, giving us space to store the parameter
+# estimates from each simulated data set.
+estimates <- data.frame(
+  est_unbiased = rep(NA, num_sims),
+  est_mle = rep(NA, num_sims),
+  est_min_mse = rep(NA, num_sims)
+)
+
+# The for loop below runs once for each number in the result of calling seq_len(num_sims).
+# seq_len(num_sims) generates a sequence of integers starting at 1 and going up to 10000
+# Basically the code inside the curly braces will run 10000 times
+# Each time the code runs, the variable i will have a different value between 1 and 10000
+for(i in seq_len(num_sims)) {
+  # simulate a data set of size n with specified mean and standard deviation
+  # after this line, x is a vector of 5 numbers
+  x <- rnorm(n, mean = true_mu, sd = true_sigma)
+  
+  # calculate the sample mean of the x's.  You will want to use this below.
+  sample_mean <- mean(x)
+  
+  # calculate each of the three estimates based on the sample values in x.
+  estimates$est_unbiased[i] <- sum((x - sample_mean)^2) / (n - 1)
+  estimates$est_mle[i] <- sum((x - sample_mean)^2) / n
+  estimates$est_min_mse[i] <- sum((x - sample_mean)^2) / (n + 1)
+}
+```
+
+You may find it helpful to take a look at the estimates data frame by running the code below.  You should see that there are 10000 rows (you don't need to scroll all the way down) and three columns with the estimates from the three approaches.  You may notice that the estimate from the unbiased approach is always larger than the corresponding estimate from the approach with minimum MSE.
+
+```{r}
+View(estimates)
+```
+
+#### 2. Calculate an estimate of the bias, variance, and MSE for each of the three estimators.
+
+You can approximate the expected value of ${\hat{\sigma}^2}^{Unbiased}$ by calculating the mean of the `est_unbiased` column in the `estimates` data frame; this can then be used to approximate the bias.
+
+You can approximate the variance by calculating the variance of this column.
+
+Finally, you can approximate the MSE by adding the squared bias to the variance.
+
+```{r}
+bias_unbiased <- mean(estimates$est_unbiased) - true_sigma^2
+bias_unbiased
+var_unbiased <- var(estimates$est_unbiased)
+var_unbiased
+mse_unbiased <- bias_unbiased^2 + var_unbiased
+mse_unbiased
+```
+
+```{r}
+bias_mle <- mean(estimates$est_mle) - true_sigma^2
+bias_mle
+var_mle <- var(estimates$est_mle)
+var_mle
+mse_mle <- bias_mle^2 + var_mle
+mse_mle
+```
+
+```{r}
+bias_min_mse <- mean(estimates$est_min_mse) - true_sigma^2
+bias_min_mse
+var_min_mse <- var(estimates$est_min_mse)
+var_min_mse
+mse_min_mse <- bias_min_mse^2 + var_min_mse
+mse_min_mse
+```
+
+#### 3. Below are plots of the estimates of these parameters across our 10000 simulated data sets, along with vertical lines showing the mean estimate for each approach.  What does this plot have to do with a sampling distribution?  How do the bias and variance of the estimators show up in the plot?
+
+```{r}
+ggplot(data = estimates) +
+  geom_vline(xintercept = true_sigma^2) +
+  geom_density(mapping = aes(x = est_unbiased), color = "purple") +
+  geom_density(mapping = aes(x = est_mle), color = "orange") +
+  geom_density(mapping = aes(x = est_min_mse), color = "cornflowerblue") +
+  geom_vline(xintercept = mean(estimates$est_unbiased), color = "purple") +
+  geom_vline(xintercept = mean(estimates$est_mle), color = "orange") +
+  geom_vline(xintercept = mean(estimates$est_min_mse), color = "cornflowerblue")
+```
+
+The density plots are approximations of the sampling distributions of the estimators.  They are not the exact sampling distributions because the exact sampling distribution shows the distribution of values for the estimator across all possible samples, but we have just simulated 10000 possible samples.
+
+The vertical lines approximate the expected values of the estimators.  The purple line is for the unbiased estimator and indeed it is nearly at the true parameter value of $\sigma^2 = 4$ as expected.
+
+The sampling distribution for the method with minimum MSE is taller and narrower than the sampling distributions for the other two methods.  This reflects the idea that this estimator has smaller variance than the other two approaches.
+
+It is difficult to identify exactly which method has smallest MSE from this plot, but we have verified theoretically that it is the method using a denominator of $n+1$.
+
